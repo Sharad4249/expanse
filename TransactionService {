@@ -1,0 +1,54 @@
+class TransactionService {
+  static final TransactionService instance = TransactionService._init();
+  static final List<Map<String, dynamic>> _transactions = [];
+  static int _idCounter = 1;
+
+  TransactionService._init();
+
+  List<Map<String, dynamic>> getTransactionsByMonth(int year, int month) {
+    final startDate = DateTime(year, month, 1);
+    final endDate = DateTime(year, month + 1, 0);
+
+    return _transactions.where((transaction) {
+      final date = DateTime.parse(transaction['date'] as String);
+      return date.isAfter(startDate.subtract(const Duration(days: 1))) &&
+          date.isBefore(endDate.add(const Duration(days: 1)));
+    }).toList();
+  }
+
+  Future<int> addTransaction(Map<String, dynamic> transaction) async {
+    transaction['id'] = _idCounter++;
+    _transactions.add(transaction);
+    return transaction['id'] as int;
+  }
+
+  Map<String, double> getTotalsForMonth(int year, int month) {
+    final monthlyTransactions = getTransactionsByMonth(year, month);
+    double income = 0.0;
+    double expenses = 0.0;
+
+    for (var transaction in monthlyTransactions) {
+      if (transaction['type'] == 'income') {
+        income += transaction['amount'] as double;
+      } else {
+        expenses += transaction['amount'] as double;
+      }
+    }
+
+    return {
+      'income': income,
+      'expenses': expenses,
+    };
+  }
+
+  void updateTransaction(int id, Map<String, dynamic> transaction) {
+    final index = _transactions.indexWhere((t) => t['id'] == id);
+    if (index != -1) {
+      _transactions[index] = transaction;
+    }
+  }
+
+  void deleteTransaction(int id) {
+    _transactions.removeWhere((t) => t['id'] == id);
+  }
+}
