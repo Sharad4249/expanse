@@ -1,0 +1,208 @@
+import 'package:flutter/material.dart';
+import 'package:intl/intl.dart';
+import '../services/transaction_service.dart';
+
+class AddExpenseScreen extends StatefulWidget {
+  final String type;
+
+  const AddExpenseScreen({super.key, required this.type});
+
+  @override
+  State<AddExpenseScreen> createState() => _AddExpenseScreenState();
+}
+
+class _AddExpenseScreenState extends State<AddExpenseScreen> {
+  final _formKey = GlobalKey<FormState>();
+  final _amountController = TextEditingController();
+  final _descriptionController = TextEditingController();
+  DateTime _selectedDate = DateTime.now();
+  String _selectedCategory = 'Food';
+  String _selectedPaymentMethod = 'Cash';
+
+  final List<String> _expenseCategories = [
+    'Food',
+    'Transport',
+    'Shopping',
+    'Bills',
+    'Entertainment',
+    'Health',
+  ];
+
+  final List<String> _incomeCategories = [
+    'Salary',
+    'Freelance',
+    'Investments',
+    'Gifts',
+  ];
+
+  final List<String> _paymentMethods = [
+    'Cash',
+    'Credit Card',
+    'Debit Card',
+    'UPI',
+    'Bank Transfer',
+  ];
+
+  @override
+  void dispose() {
+    _amountController.dispose();
+    _descriptionController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _selectDate(BuildContext context) async {
+    final DateTime? picked = await showDatePicker(
+      context: context,
+      initialDate: _selectedDate,
+      firstDate: DateTime(2000),
+      lastDate: DateTime.now(),
+    );
+    if (picked != null && picked != _selectedDate) {
+      setState(() {
+        _selectedDate = picked;
+      });
+    }
+  }
+
+  Future<void> _saveTransaction() async {
+    if (_formKey.currentState!.validate()) {
+      try {
+        final transaction = {
+          'amount': double.parse(_amountController.text),
+          'type': widget.type,
+          'category': _selectedCategory,
+          'date': _selectedDate.toIso8601String(),
+          'description': _descriptionController.text.isEmpty ? 'No description' : _descriptionController.text,
+          'paymentMethod': _selectedPaymentMethod,
+        };
+
+        await TransactionService.instance.addTransaction(transaction);
+        
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('${widget.type == 'expense' ? 'Expense' : 'Income'} saved successfully'),
+              backgroundColor: Colors.green,
+            ),
+          );
+          Navigator.pop(context, true);
+        }
+      } catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text('Failed to save ${widget.type}: ${e.toString()}'),
+              backgroundColor: Colors.red,
+            ),
+          );
+        }
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final categories = widget.type == 'expense' ? _expenseCategories : _incomeCategories;
+    if (!categories.contains(_selectedCategory)) {
+      _selectedCategory = categories[0];
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: Text('Add ${widget.type == 'expense' ? 'Expense' : 'Income'}'),
+      ),
+      body: Form(
+        key: _formKey,
+        child: ListView(
+          padding: const EdgeInsets.all(16),
+          children: [
+            TextFormField(
+              controller: _amountController,
+              keyboardType: const TextInputType.numberWithOptions(decimal: true),
+              decoration: const InputDecoration(
+                labelText: 'Amount',
+                prefixIcon: Icon(Icons.attach_money),
+              ),
+              validator: (value) {
+                if (value == null || value.isEmpty) {
+                  return 'Please enter an amount';
+                }
+                if (double.tryParse(value) == null) {
+                  return 'Please enter a valid number';
+                }
+                return null;
+              },
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedCategory,
+              decoration: const InputDecoration(
+                labelText: 'Category',
+                prefixIcon: Icon(Icons.category),
+              ),
+              items: categories.map((String category) {
+                return DropdownMenuItem<String>(
+                  value: category,
+                  child: Text(category),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedCategory = newValue;
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            ListTile(
+              leading: const Icon(Icons.calendar_today),
+              title: Text(
+                'Date: ${DateFormat('MMM dd, yyyy').format(_selectedDate)}',
+              ),
+              onTap: () => _selectDate(context),
+            ),
+            const SizedBox(height: 16),
+            DropdownButtonFormField<String>(
+              value: _selectedPaymentMethod,
+              decoration: const InputDecoration(
+                labelText: 'Payment Method',
+                prefixIcon: Icon(Icons.payment),
+              ),
+              items: _paymentMethods.map((String method) {
+                return DropdownMenuItem<String>(
+                  value: method,
+                  child: Text(method),
+                );
+              }).toList(),
+              onChanged: (String? newValue) {
+                if (newValue != null) {
+                  setState(() {
+                    _selectedPaymentMethod = newValue;
+                  });
+                }
+              },
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _descriptionController,
+              decoration: const InputDecoration(
+                labelText: 'Description (Optional)',
+                prefixIcon: Icon(Icons.description),
+              ),
+              maxLines: 3,
+            ),
+            const SizedBox(height: 24),
+            ElevatedButton(
+              onPressed: _saveTransaction,
+              style: ElevatedButton.styleFrom(
+                padding: const EdgeInsets.symmetric(vertical: 16),
+              ),
+              child: Text('Save ${widget.type == 'expense' ? 'Expense' : 'Income'}'),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
